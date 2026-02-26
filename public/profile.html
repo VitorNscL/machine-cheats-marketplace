@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="profile">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div id="profile-alert" class="alert" style="display:none"></div>
+
+    <div class="card">
+      <div class="row" style="align-items:center">
+        <img id="u-avatar" alt="Avatar" style="width:84px;height:84px;border-radius:18px;border:1px solid rgba(255,255,255,0.08)" />
+        <div style="flex:3">
+          <h2 id="u-nick" style="margin-bottom:6px"></h2>
+          <div id="u-badges" class="row" style="gap:8px;align-items:center"></div>
+          <div class="muted" id="u-rating"></div>
+        </div>
+        <div style="flex:1; text-align:right">
+          <a id="edit-profile-link" class="btn-neon" href="/perfil" style="display:none">Editar</a>
+        </div>
+      </div>
+      <p class="mt-18" id="u-bio"></p>
+    </div>
+
+    <div class="card mt-18">
+      <h3>Avaliar perfil</h3>
+      <div class="help">Você só pode avaliar se já comprou pelo menos 1 mod desse vendedor.</div>
+      <div id="pr-form" class="mt-12" style="display:none">
+        <div class="row" style="align-items:center">
+          <div>
+            <div class="label">Nota (0-5)</div>
+            <input class="input" id="pr-rating" type="number" min="0" max="5" value="5" />
+          </div>
+        </div>
+        <textarea class="input mt-12" id="pr-comment" rows="3" placeholder="Comentário (opcional)"></textarea>
+        <button class="btn-comprar btn-block mt-12" id="pr-send">Salvar avaliação</button>
+      </div>
+      <div id="pr-hint" class="help mt-12"></div>
+    </div>
+
+    <div class="card mt-18">
+      <h3>Mods à venda</h3>
+      <div class="muted">Vitrine do vendedor</div>
+      <div id="seller-products" class="mod-grid mt-18"></div>
+      <div id="seller-empty" class="muted mt-12" style="display:none">Nenhum mod publicado ainda.</div>
+    </div>
+
+    <div class="card mt-18">
+      <h3>Últimas avaliações</h3>
+      <div id="pr-list" class="mt-12"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/profile.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

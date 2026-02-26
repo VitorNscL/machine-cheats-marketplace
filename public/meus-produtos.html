@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meus produtos | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="meusProdutos">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:3">
+        <h2>Meus produtos</h2>
+        <div class="muted">Crie, edite e gerencie seu estoque.</div>
+      </div>
+      <div style="flex:1; text-align:right">
+        <button class="btn-neon" id="open-create">+ Criar mod</button>
+      </div>
+    </div>
+
+    <div id="mp-alert" class="alert mt-18" style="display:none"></div>
+
+    <div class="card mt-18" id="create-card" style="display:none">
+      <h3 id="form-title">Novo mod</h3>
+      <form id="product-form" class="form-grid" enctype="multipart/form-data">
+        <input type="hidden" name="productId" id="productId" />
+
+        <div>
+          <div class="label">Título</div>
+          <input class="input" name="title" id="title" required maxlength="80" />
+        </div>
+        <div>
+          <div class="label">Descrição</div>
+          <textarea class="input" name="description" id="description" rows="4" required maxlength="2000"></textarea>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">Preço (R$)</div>
+            <input class="input" name="price" id="price" placeholder="29,90" required />
+          </div>
+          <div>
+            <div class="label">Estoque</div>
+            <input class="input" name="stock" id="stock" type="number" min="1" value="1" required />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">Imagem (png/jpg/webp) - opcional</div>
+            <input class="input" name="image" id="image" type="file" accept=".png,.jpg,.jpeg,.webp" />
+          </div>
+          <div>
+            <div class="label">Arquivo do mod (.zip/.rar/.7z)</div>
+            <input class="input" name="modFile" id="modFile" type="file" accept=".zip,.rar,.7z" />
+            <div class="help">Obrigatório no cadastro. Na edição, é opcional.</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn-comprar btn-block" type="submit" id="save-product">Salvar</button>
+          <button class="btn-neon" type="button" id="cancel-create">Cancelar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card mt-18">
+      <h3>Lista</h3>
+      <div class="help">Clique em “Editar” para atualizar título/descrição/preço/estoque. Admin pode ocultar itens no painel.</div>
+      <div id="my-products" class="mt-18"></div>
+      <div id="my-empty" class="muted mt-12" style="display:none">Você ainda não publicou nenhum mod.</div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/meus-produtos.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketplace | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="marketplace">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:3">
+        <h2>Marketplace de Mods</h2>
+        <div class="muted">Compre mods digitais com entrega automática. Vendedores constroem reputação com avaliações.</div>
+      </div>
+      <div style="flex:2">
+        <div class="label">Buscar</div>
+        <input class="input" id="search" placeholder="Ex: GTA, Skyrim, shader..." />
+      </div>
+    </div>
+
+    <div class="mt-18" id="market-alert" style="display:none"></div>
+
+    <div class="mt-18" id="products" class="mod-grid"></div>
+    <div class="mt-18 muted" id="empty" style="display:none">Nenhum mod encontrado.</div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/marketplace.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

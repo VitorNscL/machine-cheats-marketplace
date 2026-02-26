@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações do perfil | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="perfilConfig">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <h2>Configurações do perfil</h2>
+    <div class="muted">Atualize bio e avatar. (Nick é fixo neste portfólio.)</div>
+
+    <div id="pc-alert" class="alert mt-18" style="display:none"></div>
+    <div id="pc-success" class="success mt-18" style="display:none"></div>
+
+    <div class="row mt-18" style="align-items:flex-start">
+      <div style="flex:1">
+        <div class="card">
+          <h3>Avatar</h3>
+          <img id="pc-avatar" alt="Avatar" style="width:120px;height:120px;border-radius:18px;border:1px solid rgba(255,255,255,0.08)" />
+          <form id="avatar-form" class="form-grid mt-12" enctype="multipart/form-data">
+            <input class="input" type="file" name="avatar" accept=".png,.jpg,.jpeg,.webp" required />
+            <button class="btn-comprar btn-block" type="submit">Enviar avatar</button>
+          </form>
+          <div class="help mt-12">Tamanho máximo: 2MB.</div>
+        </div>
+      </div>
+      <div style="flex:2">
+        <div class="card">
+          <h3>Dados</h3>
+          <form id="profile-form" class="form-grid">
+            <div>
+              <div class="label">Nick</div>
+              <input class="input" id="pc-nick" disabled />
+            </div>
+            <div>
+              <div class="label">Display name (opcional)</div>
+              <input class="input" id="pc-display" maxlength="40" />
+            </div>
+            <div>
+              <div class="label">Bio</div>
+              <textarea class="input" id="pc-bio" rows="5" maxlength="500"></textarea>
+            </div>
+            <button class="btn-comprar btn-block" type="submit">Salvar</button>
+          </form>
+        </div>
+
+        <div class="card mt-18">
+          <h3>Wallet (demo)</h3>
+          <div class="muted">Use para testar compras e VIP.</div>
+          <div class="row mt-12" style="align-items:center">
+            <div>
+              <div class="label">Adicionar saldo (centavos)</div>
+              <input class="input" id="topup" type="number" min="100" value="10000" />
+              <div class="help">Ex: 10000 = R$ 100,00</div>
+            </div>
+            <div>
+              <button class="btn-neon" id="topup-btn">Adicionar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/perfil-config.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

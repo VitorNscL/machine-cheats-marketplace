@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VIP | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="vip">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <h2>VIP</h2>
+    <div class="muted">VIP é separado de Admin. VIP não dá poderes de moderação.</div>
+
+    <div id="vip-alert" class="alert mt-18" style="display:none"></div>
+    <div id="vip-success" class="success mt-18" style="display:none"></div>
+
+    <div class="row mt-18" style="align-items:flex-start">
+      <div style="flex:2">
+        <div class="card">
+          <h3>Benefícios</h3>
+          <ul class="mt-12" style="line-height:1.8">
+            <li><span class="badge">Badge VIP</span> no seu perfil</li>
+            <li>Taxa menor nas vendas</li>
+            <li>(Demo) Compra confiável / destaque opcional</li>
+          </ul>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="card">
+          <h3>Status</h3>
+          <div class="mt-12" id="vip-status"></div>
+          <button class="btn-comprar btn-block mt-18" id="vip-buy">Comprar VIP (demo)</button>
+          <div class="help mt-12">O pagamento é simulado com sua wallet demo.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/vip.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

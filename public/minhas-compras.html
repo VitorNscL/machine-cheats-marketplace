@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minhas compras | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="minhasCompras">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <h2>Minhas compras</h2>
+    <div class="muted">Acesso aos downloads após compra confirmada (demo).</div>
+
+    <div id="orders-alert" class="alert mt-18" style="display:none"></div>
+
+    <div class="card mt-18">
+      <table class="table" id="orders-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Produto</th>
+            <th>Vendedor</th>
+            <th class="right">Total</th>
+            <th>Status</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="orders-body"></tbody>
+      </table>
+      <div id="orders-empty" class="muted mt-12" style="display:none">Você ainda não comprou nenhum mod.</div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/minhas-compras.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

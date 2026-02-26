@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mod | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="product">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div id="product-alert" class="alert" style="display:none"></div>
+
+    <div class="row mt-18" style="align-items:flex-start">
+      <div style="flex:2">
+        <div class="card">
+          <img id="p-image" alt="Imagem do mod" style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,0.08)" />
+          <h2 id="p-title" class="mt-12"></h2>
+          <div class="muted" id="p-seller"></div>
+          <p class="mt-12" id="p-desc"></p>
+          <div class="row mt-18" style="align-items:center">
+            <div>
+              <div class="label">Preço</div>
+              <div style="font-size:22px;font-weight:800" id="p-price"></div>
+            </div>
+            <div>
+              <div class="label">Estoque</div>
+              <div id="p-stock"></div>
+            </div>
+            <div>
+              <div class="label">Avaliação</div>
+              <div id="p-rating"></div>
+            </div>
+          </div>
+          <div class="row mt-18" style="align-items:center">
+            <input class="input" id="qty" type="number" min="1" value="1" style="max-width:120px" />
+            <button class="btn-comprar btn-block" id="buy-btn">Comprar (demo)</button>
+          </div>
+          <div class="mt-12" id="download-area" style="display:none"></div>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="card">
+          <h3>Dúvidas</h3>
+          <div class="help">Qualquer usuário logado pode perguntar. O vendedor responde.</div>
+          <div id="q-list" class="mt-12"></div>
+          <div id="q-form" class="mt-12" style="display:none">
+            <textarea class="input" id="q-text" rows="3" placeholder="Pergunte algo sobre o mod..."></textarea>
+            <button class="btn-comprar btn-block mt-12" id="q-send">Enviar pergunta</button>
+          </div>
+          <div id="q-login" class="help mt-12" style="display:none">Faça <a href="/login" style="color:var(--neon-purple)">login</a> para perguntar.</div>
+        </div>
+
+        <div class="card mt-18">
+          <h3>Avaliações do produto</h3>
+          <div class="help">Apenas compradores podem avaliar.</div>
+          <div id="r-list" class="mt-12"></div>
+          <div id="r-form" class="mt-12" style="display:none">
+            <div class="row" style="align-items:center">
+              <div style="flex:1">
+                <div class="label">Nota (0-5)</div>
+                <input class="input" id="r-rating" type="number" min="0" max="5" value="5" />
+              </div>
+            </div>
+            <textarea class="input mt-12" id="r-comment" rows="3" placeholder="Comentário (opcional)"></textarea>
+            <button class="btn-comprar btn-block mt-12" id="r-send">Salvar avaliação</button>
+          </div>
+          <div id="r-hint" class="help mt-12"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/product.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

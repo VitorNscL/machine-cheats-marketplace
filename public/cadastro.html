@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="cadastro">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div class="card" style="max-width:560px;margin:0 auto">
+      <h2 style="margin-bottom:12px">Criar conta</h2>
+      <p class="muted mb-18">Crie seu nick, coloque seus mods à venda e monte reputação.</p>
+
+      <div id="register-alert" class="alert" style="display:none"></div>
+
+      <form id="register-form" class="form-grid">
+        <div>
+          <div class="label">Nick (username)</div>
+          <input class="input" type="text" name="nick" placeholder="seu_nick" required minlength="3" maxlength="20" />
+          <div class="help">3-20 caracteres: letras, números, _ ou -</div>
+        </div>
+        <div>
+          <div class="label">Email</div>
+          <input class="input" type="email" name="email" placeholder="seuemail@exemplo.com" required />
+        </div>
+        <div>
+          <div class="label">Senha</div>
+          <input class="input" type="password" name="password" placeholder="••••••••" required minlength="8" />
+          <div class="help">Mínimo de 8 caracteres.</div>
+        </div>
+        <button class="btn-comprar btn-block" type="submit">Cadastrar</button>
+      </form>
+
+      <div class="mt-18 muted">Já tem conta? <a href="/login" style="color:var(--neon-purple)">Entrar</a></div>
+      <div class="mt-12 help">Você começa com <strong>R$ 200,00</strong> de saldo demo para testar compras.</div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/cadastro.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

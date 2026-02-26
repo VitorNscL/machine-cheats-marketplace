@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="admin">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <h2>Painel Admin</h2>
+    <div class="muted">Somente ADMIN. Ações com log básico e impersonação segura (com registros).</div>
+
+    <div class="row mt-18" style="align-items:center">
+      <a class="btn-neon" href="/admin#overview">Visão geral</a>
+      <a class="btn-neon" href="/admin#transactions">Transações</a>
+      <a class="btn-neon" href="/admin#users">Usuários</a>
+      <a class="btn-neon" href="/admin#products">Produtos</a>
+      <a class="btn-neon" href="/admin#fees">Taxas</a>
+      <a class="btn-neon" href="/admin#chat">Chat Admin</a>
+      <a class="btn-neon" href="/admin#impersonation">Impersonação</a>
+    </div>
+
+    <div id="admin-alert" class="alert mt-18" style="display:none"></div>
+    <div id="admin-success" class="success mt-18" style="display:none"></div>
+
+    <section id="tab-overview" class="card mt-18"></section>
+    <section id="tab-transactions" class="card mt-18" style="display:none"></section>
+    <section id="tab-users" class="card mt-18" style="display:none"></section>
+    <section id="tab-products" class="card mt-18" style="display:none"></section>
+    <section id="tab-fees" class="card mt-18" style="display:none"></section>
+    <section id="tab-chat" class="card mt-18" style="display:none"></section>
+    <section id="tab-impersonation" class="card mt-18" style="display:none"></section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/admin.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

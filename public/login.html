@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | NeonMods</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="login">
+  <div id="navbar"></div>
+  <div id="sidebar-root"></div>
+
+  <div class="container">
+    <div class="card" style="max-width:520px;margin:0 auto">
+      <h2 style="margin-bottom:12px">Entrar</h2>
+      <p class="muted mb-18">Acesse sua conta para comprar, vender e conversar no chat.</p>
+
+      <div id="login-alert" class="alert" style="display:none"></div>
+
+      <form id="login-form" class="form-grid">
+        <div>
+          <div class="label">Email</div>
+          <input class="input" type="email" name="email" placeholder="seuemail@exemplo.com" required />
+        </div>
+        <div>
+          <div class="label">Senha</div>
+          <input class="input" type="password" name="password" placeholder="••••••••" required />
+          <div class="help">Mínimo de 8 caracteres.</div>
+        </div>
+        <button class="btn-comprar btn-block" type="submit">Entrar</button>
+      </form>
+
+      <div class="mt-18 muted">Não tem conta? <a href="/cadastro" style="color:var(--neon-purple)">Criar agora</a></div>
+      <div class="mt-12 help">Admin seed: <strong>admin@site.com</strong> / <strong>admin123</strong></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/pages/login.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>
