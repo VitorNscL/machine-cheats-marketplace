@@ -1,4 +1,4 @@
-# MACHINE CHEATS Marketplace (portfólio)
+# MACHINE CHEATS Marketplace 
 
 Aplicação full-stack simulando um marketplace de mods digitais para jogos,
 com autenticação segura, sistema VIP, painel administrativo
