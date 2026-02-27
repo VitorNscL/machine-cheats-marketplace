@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cadastro | NeonMods</title>
+  <title>Cadastro | MACHINE CHEATS</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body data-page="cadastro">
@@ -28,6 +28,15 @@
           <input class="input" type="email" name="email" placeholder="seuemail@exemplo.com" required />
         </div>
         <div>
+          <div class="label">CPF</div>
+          <input class="input" type="text" id="cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" required />
+          <div class="help">CPF obrigatório (saque via Pix é somente para o CPF cadastrado).</div>
+        </div>
+        <div>
+          <div class="label">Data de nascimento</div>
+          <input class="input" type="date" id="birthDate" name="birthDate" required />
+        </div>
+        <div>
           <div class="label">Senha</div>
           <input class="input" type="password" name="password" placeholder="••••••••" required minlength="8" />
           <div class="help">Mínimo de 8 caracteres.</div>
@@ -36,7 +45,7 @@
       </form>
 
       <div class="mt-18 muted">Já tem conta? <a href="/login" style="color:var(--neon-purple)">Entrar</a></div>
-      <div class="mt-12 help">Você começa com <strong>R$ 200,00</strong> de saldo demo para testar compras.</div>
+      <div class="mt-12 help">Você começa com <strong>R$ 0,00</strong>. Créditos só podem ser adicionados pelo Admin (ou por um gateway real, no futuro).</div>
     </div>
   </div>
 

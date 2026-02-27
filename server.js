@@ -1,5 +1,5 @@
 /*
-  NeonMods Marketplace (portfolio)
+  MACHINE CHEATS Marketplace (portfolio)
   - Express + SQLite
   - Auth w/ bcrypt + session cookies
   - Marketplace de mods digitais com entrega automática
@@ -15,6 +15,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 
+const { clampInt } = require('./src/utils/validate');
 const { openDb, initSchema, get, run, all } = require('./src/db');
 const { loadSession, csrfProtect } = require('./src/middleware');
 const { authRouter } = require('./src/routes/auth');
@@ -106,11 +107,68 @@ async function bootstrap() {
     // Give admin a demo balance
     await run(
       db,
-      `INSERT INTO users (email, password_hash, nick, display_name, bio, avatar_key, role, is_vip, is_banned, wallet_balance_cents, seller_balance_cents, created_at)
-       VALUES (?, ?, 'admin', 'Admin', 'Conta seed do admin (portfólio).', NULL, 'ADMIN', 1, 0, 999999, 0, ?)` ,
+      `INSERT INTO users (email, password_hash, nick, display_name, bio, avatar_key, role, is_vip, is_banned, cpf, birth_date, wallet_balance_cents, seller_balance_cents, seller_pending_cents, created_at)
+       VALUES (?, ?, 'admin', 'Admin', 'Conta seed do admin (portfólio).', NULL, 'ADMIN', 1, 0, '11144477735', '1990-01-01', 999999, 0, 0, ?)` ,
       [adminEmail, passwordHash, now]
     );
     console.log('Seed admin created: admin@site.com / admin123');
+  }
+  // Escrow release loop (48h hold)
+  releaseMaturedEscrow();
+  setInterval(releaseMaturedEscrow, 30 * 1000);
+}
+
+
+async function releaseMaturedEscrow() {
+  try {
+    const nowIso = new Date().toISOString();
+    const rows = await all(
+      db,
+      `SELECT o.id as orderId,
+              o.gross_amount_cents as grossAmountCents,
+              o.fee_amount_cents as feeAmountCents,
+              o.net_amount_cents as netAmountCents,
+              o.hold_until as holdUntil,
+              p.seller_id as sellerId
+         FROM orders o
+         JOIN products p ON p.id = o.product_id
+        WHERE o.status = 'PAID_HOLD'
+          AND o.hold_until IS NOT NULL
+          AND o.hold_until <= ?
+        ORDER BY o.hold_until ASC
+        LIMIT 200`,
+      [nowIso]
+    );
+
+    for (const r of rows) {
+      await run(db, 'BEGIN');
+      try {
+        await run(
+          db,
+          "UPDATE orders SET status = 'RELEASED', released_at = ? WHERE id = ? AND status = 'PAID_HOLD'",
+          [nowIso, r.orderId]
+        );
+        await run(
+          db,
+          `UPDATE users
+              SET seller_pending_cents = seller_pending_cents - ?,
+                  seller_balance_cents = seller_balance_cents + ?
+            WHERE id = ?`,
+          [r.grossAmountCents, r.netAmountCents, r.sellerId]
+        );
+        await run(
+          db,
+          'UPDATE platform_settings SET platform_balance_cents = platform_balance_cents + ? WHERE id = 1',
+          [r.feeAmountCents]
+        );
+        await run(db, 'COMMIT');
+      } catch (e) {
+        await run(db, 'ROLLBACK');
+        throw e;
+      }
+    }
+  } catch (err) {
+    console.error('Escrow release loop error:', err);
   }
 }
 
@@ -304,6 +362,8 @@ io.on('connection', (socket) => {
       text: clean,
       createdAt: now,
       authorNick: socket.data.user.nick,
+      authorRole: socket.data.user.role,
+      authorIsVip: !!socket.data.user.isVip,
       isDeleted: false,
     });
   });
@@ -316,6 +376,186 @@ io.on('connection', (socket) => {
     await run(db, 'UPDATE chat_messages SET is_deleted = 1 WHERE id = ?', [msgId]);
     io.to(`ch:${ch}`).emit('messageDeleted', { id: msgId });
   });
+
+  // ----------------------------
+  // Support (1:1 user <-> admin)
+  // ----------------------------
+  socket.on('support:join', async () => {
+    try {
+      if (!socket.data.user) return;
+      if (socket.data.user.isBanned) return;
+
+      // Admin joins a notifications room + receives thread list
+      if (socket.data.user.role === 'ADMIN') {
+        socket.join('support:admins');
+
+        const threads = await all(
+          db,
+          `SELECT t.id as threadId,
+                  t.user_id as userId,
+                  u.nick as userNick,
+                  t.status,
+                  t.updated_at as updatedAt,
+                  (SELECT sm.text FROM support_messages sm WHERE sm.thread_id = t.id ORDER BY sm.created_at DESC LIMIT 1) as lastText,
+                  (SELECT sm.created_at FROM support_messages sm WHERE sm.thread_id = t.id ORDER BY sm.created_at DESC LIMIT 1) as lastAt
+             FROM support_threads t
+             JOIN users u ON u.id = t.user_id
+            WHERE t.status = 'OPEN'
+            ORDER BY t.updated_at DESC
+            LIMIT 50`
+        );
+
+        socket.emit('support:threads', threads);
+        return;
+      }
+
+      // Regular user: ensure an OPEN thread exists, then join it and load history
+      const nowIso = new Date().toISOString();
+      let thread = await get(db, "SELECT id FROM support_threads WHERE user_id = ? AND status = 'OPEN'", [socket.data.user.id]);
+
+      if (!thread) {
+        const r = await run(
+          db,
+          `INSERT INTO support_threads (user_id, status, created_at, updated_at)
+           VALUES (?, 'OPEN', ?, ?)`,
+          [socket.data.user.id, nowIso, nowIso]
+        );
+        thread = { id: r.lastID };
+
+        io.to('support:admins').emit('support:notify', {
+          type: 'NEW_THREAD',
+          threadId: thread.id,
+          userId: socket.data.user.id,
+          userNick: socket.data.user.nick,
+          createdAt: nowIso,
+        });
+      }
+
+      const room = `support:thread:${thread.id}`;
+      socket.join(room);
+      socket.data.supportThreadId = thread.id;
+      socket.data.supportThreadRoom = room;
+
+      const messages = await all(
+        db,
+        `SELECT m.id, m.text, m.created_at as createdAt,
+                u.nick as authorNick,
+                u.role as authorRole
+           FROM support_messages m
+           JOIN users u ON u.id = m.author_id
+          WHERE m.thread_id = ?
+          ORDER BY m.created_at ASC
+          LIMIT 100`,
+        [thread.id]
+      );
+
+      socket.emit('support:history', { threadId: thread.id, messages });
+    } catch (err) {
+      console.error('support:join error', err);
+    }
+  });
+
+  socket.on('support:selectThread', async ({ threadId } = {}) => {
+    try {
+      if (!socket.data.user) return;
+      if (socket.data.user.role !== 'ADMIN') return;
+
+      const id = clampInt(threadId, 1, 1_000_000_000);
+      if (!id) return;
+
+      // leave previous selected thread room
+      if (socket.data.supportThreadRoom) socket.leave(socket.data.supportThreadRoom);
+
+      const room = `support:thread:${id}`;
+      socket.join(room);
+      socket.data.supportThreadId = id;
+      socket.data.supportThreadRoom = room;
+
+      const messages = await all(
+        db,
+        `SELECT m.id, m.text, m.created_at as createdAt,
+                u.nick as authorNick,
+                u.role as authorRole
+           FROM support_messages m
+           JOIN users u ON u.id = m.author_id
+          WHERE m.thread_id = ?
+          ORDER BY m.created_at ASC
+          LIMIT 200`,
+        [id]
+      );
+
+      socket.emit('support:history', { threadId: id, messages });
+    } catch (err) {
+      console.error('support:selectThread error', err);
+    }
+  });
+
+  socket.on('support:message', async ({ threadId, text } = {}) => {
+    try {
+      if (!socket.data.user) return;
+      if (socket.data.user.isBanned) return;
+
+      const clean = String(text || '').trim();
+      if (!clean) return;
+      if (clean.length > 2000) return;
+
+      const nowIso = new Date().toISOString();
+
+      let id = clampInt(threadId, 1, 1_000_000_000);
+
+      if (socket.data.user.role !== 'ADMIN') {
+        // user can only write to own thread
+        id = socket.data.supportThreadId;
+        if (!id) {
+          // lazy join if needed
+          socket.emit('support:error', { error: 'THREAD_NOT_READY' });
+          return;
+        }
+      }
+
+      // verify thread exists
+      const t = await get(db, 'SELECT id, user_id as userId, status FROM support_threads WHERE id = ?', [id]);
+      if (!t) return;
+
+      // If regular user, ensure it's their thread
+      if (socket.data.user.role !== 'ADMIN' && t.userId !== socket.data.user.id) return;
+
+      const r = await run(
+        db,
+        `INSERT INTO support_messages (thread_id, author_id, text, created_at)
+         VALUES (?, ?, ?, ?)`,
+        [id, socket.data.user.id, clean, nowIso]
+      );
+      await run(db, 'UPDATE support_threads SET updated_at = ? WHERE id = ?', [nowIso, id]);
+
+      const payload = {
+        id: r.lastID,
+        threadId: id,
+        text: clean,
+        createdAt: nowIso,
+        authorNick: socket.data.user.nick,
+        authorRole: socket.data.user.role,
+      };
+
+      io.to(`support:thread:${id}`).emit('support:message', payload);
+
+      // Notify admins when user messages
+      if (socket.data.user.role !== 'ADMIN') {
+        io.to('support:admins').emit('support:notify', {
+          type: 'NEW_MESSAGE',
+          threadId: id,
+          userId: socket.data.user.id,
+          userNick: socket.data.user.nick,
+          preview: clean.slice(0, 120),
+          createdAt: nowIso,
+        });
+      }
+    } catch (err) {
+      console.error('support:message error', err);
+    }
+  });
+
+
 });
 
 // ---- Start ----

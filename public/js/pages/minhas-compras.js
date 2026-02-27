@@ -24,16 +24,17 @@ window.pages.minhasCompras = async function minhasComprasPage(me) {
       .map((o) => {
         const date = new Date(o.createdAt).toLocaleString('pt-BR');
         const total = window.api.formatCentsBRL(o.grossAmountCents);
-        const download = o.status === 'PAID'
-          ? `<a class="btn-neon" href="/api/download/${o.productId}">Baixar</a>`
-          : '';
+        const canDownload = ['PAID', 'PAID_HOLD', 'RELEASED'].includes(o.status);
+        const download = canDownload
+        ? `<a class="btn-neon" href="/api/download/${o.productId}">Baixar</a>`
+        : '';
         return `
           <tr>
             <td>${date}</td>
             <td><a href="/mod/${o.productId}" style="color:var(--neon-purple)">${window.api.escapeHtml(o.product.title)}</a></td>
             <td><a href="/u/${encodeURIComponent(o.seller.nick)}" style="color:var(--neon-purple)">@${window.api.escapeHtml(o.seller.nick)}</a></td>
             <td class="right">${total}</td>
-            <td>${o.status}</td>
+            <td>${o.status === 'PAID_HOLD' ? 'EM ANÁLISE (48h)' : (o.status === 'RELEASED' ? 'LIBERADO' : o.status)}</td>
             <td class="right">${download}</td>
           </tr>
         `;

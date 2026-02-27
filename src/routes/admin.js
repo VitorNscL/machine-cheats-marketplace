@@ -40,7 +40,7 @@ function adminRouter(db) {
       }
       const rows = await all(
         db,
-        `SELECT id, email, nick, role, is_vip as isVip, is_banned as isBanned, wallet_balance_cents as walletBalanceCents, created_at as createdAt
+        `SELECT id, email, nick, role, is_vip as isVip, is_banned as isBanned, cpf, wallet_balance_cents as walletBalanceCents, created_at as createdAt
            FROM users
           WHERE ${where}
           ORDER BY created_at DESC
@@ -54,7 +54,60 @@ function adminRouter(db) {
     }
   });
 
-  router.post('/admin/users/:id/ban', requireAdmin, async (req, res) => {
+
+  // Add wallet credits (ADMIN only)
+  router.post('/admin/users/:id/wallet/topup', requireAdmin, async (req, res) => {
+    try {
+      const id = clampInt(req.params.id, 1, 1_000_000_000);
+      const amountCents = clampInt(req.body.amountCents, 1, 100_000_000); // up to R$ 1.000.000,00
+      if (!id) return res.status(400).json({ error: 'ID_INVALID' });
+      if (!amountCents) return res.status(400).json({ error: 'AMOUNT_INVALID' });
+
+      await run(db, 'UPDATE users SET wallet_balance_cents = wallet_balance_cents + ? WHERE id = ?', [amountCents, id]);
+
+      await run(
+        db,
+        `INSERT INTO admin_audit_logs (admin_id, action, meta_json, created_at)
+         VALUES (?, 'WALLET_TOPUP', ?, ?)`,
+        [req.user.id, JSON.stringify({ userId: id, amountCents }), new Date().toISOString()]
+      );
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+  });
+
+  
+  // Withdrawals list (ADMIN)
+  router.get('/admin/withdrawals', requireAdmin, async (_req, res) => {
+    try {
+      const rows = await all(
+        db,
+        `SELECT w.id, w.seller_id as sellerId, u.nick as sellerNick,
+                w.gross_amount_cents as grossAmountCents,
+                w.fee_bps as feeBps,
+                w.fee_amount_cents as feeAmountCents,
+                w.net_amount_cents as netAmountCents,
+                w.pix_cpf as pixCpf,
+                w.receipt_code as receiptCode,
+                w.status,
+                w.created_at as createdAt,
+                w.paid_at as paidAt
+           FROM withdrawals w
+           JOIN users u ON u.id = w.seller_id
+           ORDER BY w.created_at DESC
+           LIMIT 200`
+      );
+      res.json({ ok: true, withdrawals: rows });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+  });
+
+router.post('/admin/users/:id/ban', requireAdmin, async (req, res) => {
     try {
       const id = clampInt(req.params.id, 1, 1_000_000_000);
       if (!id) return res.status(400).json({ error: 'ID_INVALID' });

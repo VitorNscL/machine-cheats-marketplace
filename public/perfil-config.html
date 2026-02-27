@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configurações do perfil | NeonMods</title>
+  <title>Configurações do perfil | MACHINE CHEATS</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body data-page="perfilConfig">
@@ -38,6 +38,15 @@
               <input class="input" id="pc-nick" disabled />
             </div>
             <div>
+              <div class="label">CPF (não pode alterar)</div>
+              <input class="input" id="pc-cpf" disabled />
+              <div class="help">Saque via Pix é somente para o CPF cadastrado.</div>
+            </div>
+            <div>
+              <div class="label">Data de nascimento</div>
+              <input class="input" id="pc-birthDate" disabled />
+            </div>
+            <div>
               <div class="label">Display name (opcional)</div>
               <input class="input" id="pc-display" maxlength="40" />
             </div>
@@ -50,19 +59,37 @@
         </div>
 
         <div class="card mt-18">
-          <h3>Wallet (demo)</h3>
-          <div class="muted">Use para testar compras e VIP.</div>
-          <div class="row mt-12" style="align-items:center">
-            <div>
-              <div class="label">Adicionar saldo (centavos)</div>
-              <input class="input" id="topup" type="number" min="100" value="10000" />
-              <div class="help">Ex: 10000 = R$ 100,00</div>
+          <h3>Saques / Pix</h3>
+          <div class="help">O Pix é enviado somente para o CPF cadastrado. Valores em hold ficam disponíveis após 48h (e podem ser reembolsados dentro desse período).</div>
+
+          <div class="row mt-12">
+            <div style="flex:1">
+              <div class="label">Disponível</div>
+              <div class="big" id="pc-seller-balance">R$ 0,00</div>
             </div>
-            <div>
-              <button class="btn-neon" id="topup-btn">Adicionar</button>
+            <div style="flex:1">
+              <div class="label">Em hold (48h)</div>
+              <div class="big" id="pc-seller-pending">R$ 0,00</div>
             </div>
           </div>
+
+          <div class="row mt-12" style="align-items:end">
+            <div style="flex:1">
+              <div class="label">Valor para converter (R$)</div>
+              <input class="input" id="pc-withdraw-amount" placeholder="Ex: 150,00" />
+              <div class="help">Converter = debita do saldo disponível e gera comprovante (código).</div>
+            </div>
+            <div>
+              <button class="btn-neon" id="pc-withdraw-btn">Converter para Pix</button>
+            </div>
+          </div>
+
+          <div id="pc-withdraw-alert" class="alert mt-12" style="display:none"></div>
+
+          <div class="mt-16 muted">Histórico</div>
+          <div id="pc-withdraw-list" class="mt-8"></div>
         </div>
+
       </div>
     </div>
   </div>

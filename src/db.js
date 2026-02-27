@@ -103,6 +103,20 @@ async function initSchema(db) {
     )`
   );
 
+
+  // ---- User schema extensions (CPF / escrow / compliance) ----
+  if (!(await tableHasColumn(db, 'users', 'cpf'))) {
+    await run(db, "ALTER TABLE users ADD COLUMN cpf TEXT");
+  }
+  if (!(await tableHasColumn(db, 'users', 'birth_date'))) {
+    await run(db, "ALTER TABLE users ADD COLUMN birth_date TEXT");
+  }
+  if (!(await tableHasColumn(db, 'users', 'seller_pending_cents'))) {
+    await run(db, "ALTER TABLE users ADD COLUMN seller_pending_cents INTEGER NOT NULL DEFAULT 0");
+  }
+  // Unique CPF (SQLite allows multiple NULLs)
+  await run(db, 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf)');
+
   await run(
     db,
     `CREATE TABLE IF NOT EXISTS products (
@@ -140,6 +154,21 @@ async function initSchema(db) {
       FOREIGN KEY (product_id) REFERENCES products(id)
     )`
   );
+
+
+  // ---- Orders schema extensions (escrow hold) ----
+  if (!(await tableHasColumn(db, 'orders', 'hold_until'))) {
+    await run(db, "ALTER TABLE orders ADD COLUMN hold_until TEXT");
+  }
+  if (!(await tableHasColumn(db, 'orders', 'released_at'))) {
+    await run(db, "ALTER TABLE orders ADD COLUMN released_at TEXT");
+  }
+  if (!(await tableHasColumn(db, 'orders', 'refunded_at'))) {
+    await run(db, "ALTER TABLE orders ADD COLUMN refunded_at TEXT");
+  }
+
+  // Back-compat: old 'PAID' orders become 'RELEASED' (funds already considered settled in old model)
+  await run(db, "UPDATE orders SET status = 'RELEASED' WHERE status = 'PAID'");
 
   await run(
     db,
@@ -216,6 +245,52 @@ async function initSchema(db) {
     )`
   );
 
+
+  // ---- Withdrawals (wallet -> PIX) ----
+  await run(
+    db,
+    `CREATE TABLE IF NOT EXISTS withdrawals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      seller_id INTEGER NOT NULL,
+      gross_amount_cents INTEGER NOT NULL,
+      fee_bps INTEGER NOT NULL,
+      fee_amount_cents INTEGER NOT NULL,
+      net_amount_cents INTEGER NOT NULL,
+      pix_cpf TEXT NOT NULL,
+      receipt_code TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      paid_at TEXT,
+      FOREIGN KEY (seller_id) REFERENCES users(id)
+    )`
+  );
+
+  // ---- Support chat (1:1 user <-> admin) ----
+  await run(
+    db,
+    `CREATE TABLE IF NOT EXISTS support_threads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL UNIQUE,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`
+  );
+
+  await run(
+    db,
+    `CREATE TABLE IF NOT EXISTS support_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      thread_id INTEGER NOT NULL,
+      author_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (thread_id) REFERENCES support_threads(id),
+      FOREIGN KEY (author_id) REFERENCES users(id)
+    )`
+  );
+
   await run(
     db,
     `CREATE TABLE IF NOT EXISTS admin_impersonation_logs (
@@ -278,6 +353,9 @@ async function initSchema(db) {
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_id)');
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_orders_seller ON orders(seller_id)');
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_chat_channel ON chat_messages(channel, created_at)');
+  await run(db, 'CREATE INDEX IF NOT EXISTS idx_withdrawals_seller ON withdrawals(seller_id, created_at)');
+  await run(db, 'CREATE INDEX IF NOT EXISTS idx_support_threads_status ON support_threads(status, updated_at)');
+  await run(db, 'CREATE INDEX IF NOT EXISTS idx_support_messages_thread ON support_messages(thread_id, created_at)');
 
   // Default platform settings
   const settings = await get(db, 'SELECT * FROM platform_settings WHERE id = 1');
@@ -286,10 +364,14 @@ async function initSchema(db) {
     // fee_bps: 10.00%, vip_fee_bps: 5.00%
     await run(
       db,
-      'INSERT INTO platform_settings (id, fee_bps, vip_fee_bps, platform_balance_cents, updated_at) VALUES (1, 1000, 500, 0, ?)',
+      'INSERT INTO platform_settings (id, fee_bps, vip_fee_bps, platform_balance_cents, updated_at) VALUES (1, 1000, 600, 0, ?)',
       [now]
     );
   }
+
+  // If project was created with old default VIP fee (5%), bump to 6% (can be changed in admin).
+  await run(db, "UPDATE platform_settings SET vip_fee_bps = 600 WHERE id = 1 AND vip_fee_bps = 500");
+
 }
 
 module.exports = {

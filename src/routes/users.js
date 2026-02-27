@@ -4,7 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { all, get, run } = require('../db');
 const { requireAuth, requireNotBanned } = require('../middleware');
-const { clampInt } = require('../utils/validate');
+const { clampInt, maskCPF } = require('../utils/validate');
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -12,6 +12,18 @@ function ensureDir(p) {
 
 function usersRouter(db, { avatarDir }) {
   const router = express.Router();
+
+  // ✅ FIX: define upload (avatar)
+  ensureDir(avatarDir);
+
+  const upload = multer({
+    dest: avatarDir,
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    fileFilter: (req, file, cb) => {
+      const ok = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.mimetype);
+      cb(ok ? null : new Error('INVALID_FILE_TYPE'), ok);
+    },
+  });
 
   // /api/me
   router.get('/me', async (req, res) => {
@@ -35,6 +47,7 @@ function usersRouter(db, { avatarDir }) {
         isBanned: req.user.isBanned,
         walletBalanceCents: req.user.walletBalanceCents,
         sellerBalanceCents: req.user.sellerBalanceCents,
+        sellerPendingCents: req.user.sellerPendingCents,
         avatarUrl: `/api/users/${encodeURIComponent(req.user.nick)}/avatar`,
       },
       session: {
@@ -44,14 +57,18 @@ function usersRouter(db, { avatarDir }) {
     });
   });
 
-  // Public profile
+    // Public profile
   router.get('/users/:nick', async (req, res) => {
     try {
       const nick = String(req.params.nick || '').trim();
+
       const u = await get(
         db,
-        `SELECT id, nick, display_name as displayName, bio, role, is_vip as isVip, created_at as createdAt
-           FROM users WHERE nick = ?`,
+        `SELECT id, nick, display_name as displayName, bio, role,
+                is_vip as isVip, is_banned as isBanned,
+                created_at as createdAt
+           FROM users
+          WHERE nick = ?`,
         [nick]
       );
       if (!u) return res.status(404).json({ error: 'NOT_FOUND' });
@@ -59,7 +76,8 @@ function usersRouter(db, { avatarDir }) {
       const ratingAgg = await get(
         db,
         `SELECT AVG(rating) as avgRating, COUNT(*) as count
-           FROM profile_ratings WHERE to_user_id = ?`,
+           FROM profile_ratings
+          WHERE to_user_id = ?`,
         [u.id]
       );
 
@@ -67,26 +85,44 @@ function usersRouter(db, { avatarDir }) {
       const count = ratingAgg?.count ? Number(ratingAgg.count) : 0;
 
       // Viewer permissions
-      let viewer = { isOwner: false, canRate: false, existingRating: null };
+      const viewer = { isOwner: false, canRate: false, existingRating: null };
+
       if (req.user) {
         viewer.isOwner = req.user.id === u.id;
+
         if (!viewer.isOwner) {
-          // Can rate only if bought at least 1 product from this seller
+          // ✅ prova de compra (compatível com PAID_HOLD/RELEASED e sem depender de orders.seller_id)
           const order = await get(
             db,
-            `SELECT id FROM orders WHERE buyer_id = ? AND seller_id = ? AND status = 'PAID' LIMIT 1`,
+            `SELECT o.id
+               FROM orders o
+               JOIN products p ON p.id = o.product_id
+              WHERE o.buyer_id = ?
+                AND p.seller_id = ?
+                AND o.status IN ('PAID_HOLD','RELEASED','PAID')
+              ORDER BY o.created_at DESC
+              LIMIT 1`,
             [req.user.id, u.id]
           );
           viewer.canRate = !!order;
+
           const existing = await get(
             db,
-            `SELECT rating, comment, order_id as orderId, created_at as createdAt, updated_at as updatedAt
-               FROM profile_ratings WHERE from_user_id = ? AND to_user_id = ?`,
+            `SELECT rating, comment,
+                    order_id as orderId,
+                    created_at as createdAt,
+                    updated_at as updatedAt
+               FROM profile_ratings
+              WHERE from_user_id = ? AND to_user_id = ?`,
             [req.user.id, u.id]
           );
           viewer.existingRating = existing || null;
         }
       }
+
+      // ✅ resposta do perfil público é o "u"
+      // ✅ só manda saldos se for o dono do perfil
+      const isOwner = req.user && req.user.id === u.id;
 
       res.json({
         user: {
@@ -96,9 +132,18 @@ function usersRouter(db, { avatarDir }) {
           bio: u.bio,
           role: u.role,
           isVip: !!u.isVip,
-          avatarUrl: `/api/users/${encodeURIComponent(u.nick)}/avatar`,
+          isBanned: !!u.isBanned,
           createdAt: u.createdAt,
+          avatarUrl: `/api/users/${encodeURIComponent(u.nick)}/avatar`,
           rating: { avg, count },
+
+          ...(isOwner
+            ? {
+                walletBalanceCents: req.user.walletBalanceCents || 0,
+                sellerBalanceCents: req.user.sellerBalanceCents || 0,
+                sellerPendingCents: req.user.sellerPendingCents || 0,
+              }
+            : {}),
         },
         viewer,
       });
@@ -143,41 +188,7 @@ function usersRouter(db, { avatarDir }) {
     }
   });
 
-  // Demo wallet top-up (portfolio)
-  router.post('/me/wallet/topup', requireAuth, requireNotBanned, async (req, res) => {
-    try {
-      const amountCents = clampInt(req.body.amountCents, 100, 500000); // R$ 1,00 to R$ 5.000,00
-      if (amountCents === null) return res.status(400).json({ error: 'INVALID_AMOUNT' });
-      await run(db, 'UPDATE users SET wallet_balance_cents = wallet_balance_cents + ? WHERE id = ?', [amountCents, req.user.id]);
-      res.json({ ok: true });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'SERVER_ERROR' });
-    }
-  });
-
-  // Avatar upload
-  ensureDir(avatarDir);
-  const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => cb(null, avatarDir),
-      filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        const safeExt = ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) ? ext : '.png';
-        const name = `avatar_u${req.user.id}_${Date.now()}${safeExt}`;
-        cb(null, name);
-      },
-    }),
-    limits: {
-      fileSize: 2 * 1024 * 1024, // 2MB
-    },
-    fileFilter: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      if (!['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) return cb(new Error('INVALID_FILE_TYPE'));
-      cb(null, true);
-    },
-  });
-
+  // Upload avatar (owner)
   router.post('/me/avatar', requireAuth, requireNotBanned, upload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
@@ -197,15 +208,18 @@ function usersRouter(db, { avatarDir }) {
       const u = await get(db, 'SELECT avatar_key as avatarKey FROM users WHERE nick = ?', [nick]);
       const avatarKey = u?.avatarKey;
       const fallback = path.join(__dirname, '..', '..', 'public', 'img', 'avatar-default.svg');
+
       if (!avatarKey) {
         if (fs.existsSync(fallback)) return res.sendFile(fallback);
         return res.status(204).end();
       }
+
       const filePath = path.join(avatarDir, avatarKey);
       if (!fs.existsSync(filePath)) {
         if (fs.existsSync(fallback)) return res.sendFile(fallback);
         return res.status(204).end();
       }
+
       res.sendFile(filePath);
     } catch (err) {
       console.error(err);
@@ -219,6 +233,7 @@ function usersRouter(db, { avatarDir }) {
       const nick = String(req.params.nick || '').trim();
       const u = await get(db, 'SELECT id FROM users WHERE nick = ?', [nick]);
       if (!u) return res.status(404).json({ error: 'NOT_FOUND' });
+
       const rows = await all(
         db,
         `SELECT pr.rating, pr.comment, pr.created_at as createdAt, pr.updated_at as updatedAt,
@@ -230,6 +245,7 @@ function usersRouter(db, { avatarDir }) {
           LIMIT 50`,
         [u.id]
       );
+
       res.json({ data: rows });
     } catch (err) {
       console.error(err);
@@ -261,6 +277,7 @@ function usersRouter(db, { avatarDir }) {
         `SELECT id FROM profile_ratings WHERE from_user_id = ? AND to_user_id = ?`,
         [req.user.id, to.id]
       );
+
       const now = new Date().toISOString();
       if (existing) {
         await run(
@@ -276,7 +293,105 @@ function usersRouter(db, { avatarDir }) {
           [req.user.id, to.id, rating, comment || null, order.id, now]
         );
       }
+
       res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+  });
+
+  // Withdrawals (seller converts wallet -> PIX CPF)
+  router.get('/me/withdrawals', requireAuth, requireNotBanned, async (req, res) => {
+    try {
+      const rows = await all(
+        db,
+        `SELECT id,
+                gross_amount_cents as grossAmountCents,
+                fee_bps as feeBps,
+                fee_amount_cents as feeAmountCents,
+                net_amount_cents as netAmountCents,
+                pix_cpf as pixCpf,
+                receipt_code as receiptCode,
+                status,
+                created_at as createdAt,
+                paid_at as paidAt
+           FROM withdrawals
+          WHERE seller_id = ?
+          ORDER BY created_at DESC
+          LIMIT 100`,
+        [req.user.id]
+      );
+      res.json({ ok: true, withdrawals: rows });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+  });
+
+  router.post('/me/withdraw', requireAuth, requireNotBanned, async (req, res) => {
+    try {
+      if (!req.user.cpf) return res.status(400).json({ error: 'CPF_REQUIRED' });
+
+      const amountCents = clampInt(req.body.amountCents, 1, 100_000_000); // up to R$ 1M
+      if (!amountCents) return res.status(400).json({ error: 'AMOUNT_INVALID' });
+
+      // Must have available seller balance
+      const u = await get(
+        db,
+        'SELECT seller_balance_cents as sellerBalanceCents, is_vip as isVip, cpf FROM users WHERE id = ?',
+        [req.user.id]
+      );
+      if (!u) return res.status(401).json({ error: 'UNAUTHORIZED' });
+      if (u.cpf !== req.user.cpf) return res.status(400).json({ error: 'CPF_MISMATCH' });
+
+      if (u.sellerBalanceCents < amountCents) return res.status(400).json({ error: 'INSUFFICIENT_SELLER_BALANCE' });
+
+      // No extra fee on withdrawal; platform fee is applied on sale release.
+      const feeBps = 0;
+      const feeAmountCents = 0;
+      const netAmountCents = amountCents;
+
+      const receiptCode = `PIX-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${Math.random()
+        .toString(36)
+        .slice(2, 8)
+        .toUpperCase()}`;
+      const nowIso = new Date().toISOString();
+
+      await run(db, 'BEGIN');
+      try {
+        await run(db, 'UPDATE users SET seller_balance_cents = seller_balance_cents - ? WHERE id = ?', [
+          amountCents,
+          req.user.id,
+        ]);
+
+        await run(
+          db,
+          `INSERT INTO withdrawals (
+             seller_id, gross_amount_cents, fee_bps, fee_amount_cents, net_amount_cents,
+             pix_cpf, receipt_code, status, created_at, paid_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?)`,
+          [req.user.id, amountCents, feeBps, feeAmountCents, netAmountCents, req.user.cpf, receiptCode, nowIso, nowIso]
+        );
+
+        await run(db, 'COMMIT');
+      } catch (e) {
+        await run(db, 'ROLLBACK');
+        throw e;
+      }
+
+      res.json({
+        ok: true,
+        receipt: {
+          receiptCode,
+          grossAmountCents: amountCents,
+          feeBps,
+          feeAmountCents,
+          netAmountCents,
+          pixCpf: maskCPF(req.user.cpf),
+          paidAt: nowIso,
+        },
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'SERVER_ERROR' });

@@ -40,6 +40,51 @@ function formatCentsBRL(cents) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function normalizeCPF(cpf) {
+  return String(cpf || '').replace(/\D/g, '');
+}
+
+function isValidCPF(cpf) {
+  const c = normalizeCPF(cpf);
+  if (c.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(c)) return false; // all digits equal
+
+  function calcCheckDigit(base) {
+    let sum = 0;
+    for (let i = 0; i < base.length; i++) {
+      sum += Number(base[i]) * (base.length + 1 - i);
+    }
+    const mod = (sum * 10) % 11;
+    return mod === 10 ? 0 : mod;
+  }
+
+  const d1 = calcCheckDigit(c.slice(0, 9));
+  const d2 = calcCheckDigit(c.slice(0, 10));
+  return d1 === Number(c[9]) && d2 === Number(c[10]);
+}
+
+function isValidBirthDate(dateStr, { minAgeYears = 13 } = {}) {
+  if (typeof dateStr !== 'string') return false;
+  const m = /^\d{4}-\d{2}-\d{2}$/.exec(dateStr.trim());
+  if (!m) return false;
+  const d = new Date(dateStr + 'T00:00:00.000Z');
+  if (Number.isNaN(d.getTime())) return false;
+  // Must not be in the future
+  const now = new Date();
+  if (d.getTime() > now.getTime()) return false;
+
+  // Age check
+  const ageMs = now.getTime() - d.getTime();
+  const ageYears = ageMs / (1000 * 60 * 60 * 24 * 365.25);
+  return ageYears >= minAgeYears;
+}
+
+function maskCPF(cpf) {
+  const c = normalizeCPF(cpf);
+  if (c.length !== 11) return '';
+  return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
 module.exports = {
   isValidEmail,
   normalizeEmail,
@@ -49,4 +94,8 @@ module.exports = {
   clampInt,
   parseMoneyToCents,
   formatCentsBRL,
+  normalizeCPF,
+  isValidCPF,
+  isValidBirthDate,
+  maskCPF,
 };

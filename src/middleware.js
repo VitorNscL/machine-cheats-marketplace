@@ -35,7 +35,7 @@ async function loadSession(db, req, res, next) {
       const sess = await get(
         db,
         `SELECT s.*, u.email, u.nick, u.display_name, u.bio, u.avatar_key, u.role, u.is_vip, u.is_banned,
-                u.wallet_balance_cents, u.seller_balance_cents
+                u.cpf, u.birth_date, u.wallet_balance_cents, u.seller_balance_cents, u.seller_pending_cents
            FROM sessions s
            JOIN users u ON u.id = s.user_id
           WHERE s.token_hash = ?`,
@@ -103,6 +103,9 @@ async function loadSession(db, req, res, next) {
         isBanned: !!activeSess.is_banned,
         walletBalanceCents: activeSess.wallet_balance_cents,
         sellerBalanceCents: activeSess.seller_balance_cents,
+        sellerPendingCents: activeSess.seller_pending_cents,
+        cpf: activeSess.cpf,
+        birthDate: activeSess.birth_date,
       };
     }
 

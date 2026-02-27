@@ -7,6 +7,9 @@ const {
   normalizeNick,
   isValidNick,
   isValidPassword,
+  normalizeCPF,
+  isValidCPF,
+  isValidBirthDate,
 } = require('../utils/validate');
 
 function cookieOptions(req, days) {
@@ -31,7 +34,12 @@ function cookieOptionsReadable(req, days) {
   };
 }
 
-async function createSession(db, res, userId, { days = 7, impersonatorAdminId = null, impersonationLogId = null } = {}) {
+async function createSession(
+  db,
+  res,
+  userId,
+  { days = 7, impersonatorAdminId = null, impersonationLogId = null } = {}
+) {
   const token = randomToken(32);
   const csrfToken = randomToken(16);
   const tokenHash = hashToken(token);
@@ -41,7 +49,7 @@ async function createSession(db, res, userId, { days = 7, impersonatorAdminId = 
   await run(
     db,
     `INSERT INTO sessions (user_id, token_hash, csrf_token, created_at, expires_at, impersonator_admin_id, impersonation_log_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)` ,
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       tokenHash,
@@ -67,30 +75,49 @@ function authRouter(db) {
       const email = normalizeEmail(req.body.email);
       const password = String(req.body.password || '');
       const nick = normalizeNick(req.body.nick);
+      const cpf = normalizeCPF(req.body.cpf);
+      const birthDate = String(req.body.birthDate || '').trim();
 
       if (!isValidEmail(email)) return res.status(400).json({ error: 'EMAIL_INVALID' });
       if (!isValidPassword(password)) return res.status(400).json({ error: 'PASSWORD_WEAK', min: 8 });
       if (!isValidNick(nick)) return res.status(400).json({ error: 'NICK_INVALID' });
+      if (!isValidCPF(cpf)) return res.status(400).json({ error: 'CPF_INVALID' });
+      if (!isValidBirthDate(birthDate, { minAgeYears: 13 }))
+        return res.status(400).json({ error: 'BIRTHDATE_INVALID' });
 
       const existingEmail = await get(db, 'SELECT id FROM users WHERE email = ?', [email]);
       if (existingEmail) return res.status(409).json({ error: 'EMAIL_TAKEN' });
+
       const existingNick = await get(db, 'SELECT id FROM users WHERE nick = ?', [nick]);
       if (existingNick) return res.status(409).json({ error: 'NICK_TAKEN' });
+
+      const existingCpf = await get(db, 'SELECT id, is_banned as isBanned FROM users WHERE cpf = ?', [cpf]);
+      if (existingCpf) {
+        if (existingCpf.isBanned) return res.status(403).json({ error: 'CPF_BANNED' });
+        return res.status(409).json({ error: 'CPF_TAKEN' });
+      }
 
       const passwordHash = await hashPassword(password);
       const nowIso = new Date().toISOString();
 
-      // Give a small demo wallet balance so purchases can be tested.
-      const demoWalletCents = 20000; // R$ 200,00
+      // New users start with 0 wallet (credits must be added by admin or a real payment flow)
+      const initialWalletCents = 0;
 
       const result = await run(
         db,
-        `INSERT INTO users (email, password_hash, nick, display_name, bio, avatar_key, role, is_vip, is_banned, wallet_balance_cents, seller_balance_cents, created_at)
-         VALUES (?, ?, ?, ?, '', NULL, 'USER', 0, 0, ?, 0, ?)` ,
-        [email, passwordHash, nick, nick, demoWalletCents, nowIso]
+        `INSERT INTO users (
+           email, password_hash, nick, display_name, bio, avatar_key,
+           role, is_vip, is_banned,
+           cpf, birth_date,
+           wallet_balance_cents, seller_balance_cents, seller_pending_cents,
+           created_at
+         )
+         VALUES (?, ?, ?, ?, '', NULL, 'USER', 0, 0, ?, ?, ?, 0, 0, ?)`,
+        [email, passwordHash, nick, nick, cpf, birthDate, initialWalletCents, nowIso]
       );
 
       const userId = result.lastID;
+
       const sess = await createSession(db, res, userId);
       res.cookie('sid', sess.token, cookieOptions(req, 7));
 
@@ -98,7 +125,10 @@ function authRouter(db) {
         db,
         `SELECT id, email, nick, display_name as displayName, bio, avatar_key as avatarKey,
                 role, is_vip as isVip, is_banned as isBanned,
-                wallet_balance_cents as walletBalanceCents, seller_balance_cents as sellerBalanceCents,
+                cpf, birth_date as birthDate,
+                wallet_balance_cents as walletBalanceCents,
+                seller_balance_cents as sellerBalanceCents,
+                seller_pending_cents as sellerPendingCents,
                 created_at as createdAt
            FROM users WHERE id = ?`,
         [userId]
@@ -144,12 +174,14 @@ function authRouter(db) {
     try {
       const sid = req.cookies?.sid;
       const imp = req.cookies?.imp;
+
       if (sid) {
         await run(db, 'DELETE FROM sessions WHERE token_hash = ?', [hashToken(sid)]).catch(() => {});
       }
       if (imp) {
         await run(db, 'DELETE FROM sessions WHERE token_hash = ?', [hashToken(imp)]).catch(() => {});
       }
+
       res.clearCookie('sid');
       res.clearCookie('imp');
       res.clearCookie('csrf');

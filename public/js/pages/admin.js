@@ -1,7 +1,7 @@
 window.pages = window.pages || {};
 
 function showTab(name) {
-  const tabs = ['overview', 'transactions', 'users', 'products', 'fees', 'chat', 'impersonation'];
+  const tabs = ['overview', 'transactions', 'withdrawals', 'users', 'products', 'fees', 'chat', 'impersonation'];
   for (const t of tabs) {
     const el = document.getElementById(`tab-${t}`);
     if (!el) continue;
@@ -117,6 +117,8 @@ window.pages.admin = async function adminPage(me) {
             <th class="right">Taxa</th>
             <th class="right">Líquido</th>
             <th>Status</th>
+            <th>Hold até</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -133,6 +135,8 @@ window.pages.admin = async function adminPage(me) {
                   <td class="right">${window.api.formatCentsBRL(r.feeAmountCents)}</td>
                   <td class="right">${window.api.formatCentsBRL(r.netAmountCents)}</td>
                   <td>${r.status}</td>
+            <td>${r.holdUntil ? new Date(r.holdUntil).toLocaleString() : '-'}</td>
+            <td>${r.status === 'PAID_HOLD' ? `<button class=\"btn\" data-refund=\"${r.id}\">Reembolsar</button>` : ''}</td>
                 </tr>
               `;
             })
@@ -142,7 +146,84 @@ window.pages.admin = async function adminPage(me) {
     `;
   }
 
-  async function renderUsers() {
+  
+
+async function renderWithdrawals() {
+  const sec = document.querySelector('#tab-withdrawals');
+  sec.innerHTML = `<h2>Saques / PIX</h2>
+    <div class="muted mt-8">Lista de conversões de wallet para Pix (CPF) + comprovante (código).</div>
+    <div class="mt-12">Carregando...</div>`;
+
+  const data = await window.api.apiFetch('/api/admin/withdrawals');
+  const rows = data.withdrawals || [];
+
+  function fmtIso(iso) {
+    if (!iso) return '-';
+    try { return new Date(iso).toLocaleString(); } catch { return iso; }
+  }
+  function fmtCpf(cpf) {
+    if (!cpf) return '-';
+    const d = String(cpf).replace(/\D/g, '');
+    if (d.length !== 11) return cpf;
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  function fmtBRL(cents) {
+    const v = (Number(cents || 0) / 100).toFixed(2).replace('.', ',');
+    return `R$ ${v}`;
+  }
+
+  const html = `
+    <div class="table-wrap mt-12">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Vendedor</th>
+            <th>CPF Pix</th>
+            <th>Bruto</th>
+            <th>Taxa</th>
+            <th>Líquido</th>
+            <th>Status</th>
+            <th>Hold até</th>
+            <th>Ações</th>
+            <th>Data</th>
+            <th>Comprovante</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((w) => `
+            <tr>
+              <td>${w.id}</td>
+              <td>${w.sellerNick} <span class="muted">(#${w.sellerId})</span></td>
+              <td>${fmtCpf(w.pixCpf)}</td>
+              <td>${fmtBRL(w.grossAmountCents)}</td>
+              <td>${w.feeBps / 100}% (${fmtBRL(w.feeAmountCents)})</td>
+              <td>${fmtBRL(w.netAmountCents)}</td>
+              <td>${w.status}</td>
+              <td>${fmtIso(w.createdAt)}</td>
+              <td><code>${w.receiptCode}</code></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  sec.innerHTML = `<h2>Saques / PIX</h2>${html}`;
+
+  // refund buttons
+  sec.querySelectorAll('button[data-refund]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-refund');
+      if (!confirm('Reembolsar esta compra? Isso devolve o saldo ao comprador e remove do hold do vendedor.')) return;
+      await window.api.apiFetch(`/api/admin/orders/${id}/refund`, { method: 'POST' });
+      await renderTransactions();
+    });
+  });
+
+}
+
+async function renderUsers() {
     const el = document.getElementById('tab-users');
     el.innerHTML = `
       <h3>Usuários</h3>
@@ -165,12 +246,21 @@ window.pages.admin = async function adminPage(me) {
     async function load(q) {
       const data = await window.api.apiFetch(`/api/admin/users${q ? `?q=${encodeURIComponent(q)}` : ''}`);
       const rows = data.data || [];
+
+      const fmtCpf = (cpf) => {
+        if (!cpf) return '-';
+        const d = String(cpf).replace(/\D/g, '');
+        if (d.length !== 11) return cpf;
+        return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+      };
+
       table.innerHTML = `
         <table class="table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Nick</th>
+            <th>CPF</th>
               <th>Email</th>
               <th>Role</th>
               <th>VIP</th>
@@ -200,6 +290,7 @@ window.pages.admin = async function adminPage(me) {
                       ${u.role !== 'ADMIN' ? `<button class="btn-neon" data-promote="${u.id}">Promover</button>` : ''}
                       ${u.role !== 'ADMIN' ? '' : ''}
                       <button class="btn-neon" data-imp="${u.id}">Entrar como</button>
+                      <button class="btn-neon" data-topup="${u.id}">Saldo +</button>
                     </td>
                   </tr>
                 `;
@@ -278,6 +369,33 @@ window.pages.admin = async function adminPage(me) {
           }
         });
       });
+      table.querySelectorAll('[data-topup]').forEach((b) => {
+        b.addEventListener('click', async () => {
+          clearAlerts();
+          const id = b.getAttribute('data-topup');
+          const v = prompt('Valor para adicionar na wallet (R$):', '10,00');
+          if (!v) return;
+
+          const normalized = String(v).trim().replace(/\./g, '').replace(',', '.');
+          const num = Number(normalized);
+          if (!Number.isFinite(num) || num <= 0) return alert('Valor inválido.');
+
+          const amountCents = Math.round(num * 100);
+
+          try {
+            await window.api.apiFetch(`/api/admin/users/${id}/wallet/topup`, {
+              method: 'POST',
+              body: JSON.stringify({ amountCents }),
+            });
+            setAlert('success', 'Saldo adicionado.');
+            await load(qEl.value.trim());
+          } catch (e) {
+            console.error(e);
+            setAlert('error', 'Falha ao adicionar saldo.');
+          }
+        });
+      });
+
     }
 
     btn.addEventListener('click', () => load(qEl.value.trim()));
@@ -304,6 +422,8 @@ window.pages.admin = async function adminPage(me) {
             <th class="right">Preço</th>
             <th class="right">Estoque</th>
             <th>Status</th>
+            <th>Hold até</th>
+            <th>Ações</th>
             <th class="right">Ações</th>
           </tr>
         </thead>
@@ -613,6 +733,7 @@ window.pages.admin = async function adminPage(me) {
     clearAlerts();
     try {
       if (tab === 'overview') await renderOverview();
+  if (tab === 'withdrawals') await renderWithdrawals();
       if (tab === 'transactions') await renderTransactions();
       if (tab === 'users') await renderUsers();
       if (tab === 'products') await renderProducts();
