@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bc13fe"/>
+      <stop offset="1" stop-color="#ff2bd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" rx="26" fill="#141418"/>
+  <rect x="54" y="54" width="692" height="392" rx="22" fill="#0a0a0c" stroke="#bc13fe" stroke-opacity="0.25" stroke-width="4"/>
+  <path d="M120 330l90-110 70 85 110-150 210 250" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="240" cy="190" r="34" fill="url(#g)" opacity="0.85"/>
+  <text x="90" y="420" fill="#a7a7ad" font-family="Arial, Helvetica, sans-serif" font-size="20">Imagem do mod (placeholder)</text>
+</svg>
