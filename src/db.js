@@ -2,7 +2,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
 // Database lives in the project root (same behavior as the original project)
-const DB_PATH = path.join(__dirname, '..', 'database.db');
+const DB_PATH = path.join(__dirname, '../database.db');
 
 /**
  * @returns {sqlite3.Database}

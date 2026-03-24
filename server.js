@@ -95,6 +95,7 @@ fs.mkdirSync(MOD_FILES_DIR, { recursive: true });
 
 // DB
 const dbPath = path.join(__dirname, '../database.db');
+const db = openDb();
 
 async function bootstrap() {
   await initSchema(db);
